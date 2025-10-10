@@ -17,7 +17,7 @@ include_directories(SYSTEM
 )
 
 add_executable(${PROJECT_NAME}
-    src/renderer.cpp
+    src/main.cpp
     src/glad.c
 )
 
