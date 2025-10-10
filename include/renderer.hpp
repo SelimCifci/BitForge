@@ -13,73 +13,85 @@
 #include <camera.hpp>
 
 #include <iostream>
+#include <vector>
 
 class Renderer
 {
 public:
-    unsigned int ScrWidth;
-    unsigned int ScrHeight;
-    const char* VertShader;
-    const char* FragShader;
-    const char* Name;
+    // CLASS INSTANCES
+    GLFWwindow* window;
+    Shader shader;
+    Camera camera{glm::vec3(0.0f, 0.0f, 0.0f)};
 
-    Renderer(unsigned int width, unsigned int height, const char* vertShader, const char* fragShader, const char* name)
-    {
-        ScrWidth = width;
-        ScrHeight = height;
-        VertShader = vertShader;
-        FragShader = fragShader;
-        Name = name;
-        std::cout << "A\n";
-    }
+    // WINDOW DETAILS
+    unsigned int scr_width, scr_height;
+    const char* app_name;
+
+    // BUFFERS
+    unsigned int VBO, VAO;
+
+    // TEXTURES
+    unsigned int texture;
+
+    // RUNTIME VARIABLES
+    float lastx;
+    float lasty;
+    bool first_mouse = true;
 
     // timing
-    float deltaTime = 0.0f;	// time between current frame and last frame
-    float lastFrame = 0.0f;
+    float delta_time = 0.0f;
+    float last_frame = 0.0f;
 
-    float* vertices;
-    glm::vec3* cubePositions;
+    // to render
+    std::vector<float> vertices;
+    std::vector<glm::vec3> cube_positions;
 
-    int init()
+    Renderer(unsigned int width, unsigned int height, const char* name)
     {
-        // glfw: initialize and configure
+        scr_width = width;
+        scr_height = height;
+        app_name = name;
+    }
+
+    void init()
+    {
         glfwInit();
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHintString(GLFW_WAYLAND_APP_ID, "BitForge");
 
-        #ifdef __APPLE__
-            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-        #endif
+    #ifdef __APPLE__
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    #endif
 
-        window = glfwCreateWindow(ScrWidth, ScrHeight, Name, NULL, NULL);
+        window = glfwCreateWindow(scr_width, scr_height, app_name, NULL, NULL);
         if (window == NULL)
         {
             std::cout << "Failed to create GLFW window" << std::endl;
             glfwTerminate();
-            return -1;
         }
         glfwMakeContextCurrent(window);
+        glfwSetWindowUserPointer(window, this);
+
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
         glfwSetCursorPosCallback(window, mouse_callback_static);
         glfwSetScrollCallback(window, scroll_callback_static);
 
-        // tell GLFW to capture our mouse
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-        // glad: load all OpenGL function pointers
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         {
             std::cout << "Failed to initialize GLAD" << std::endl;
-            return -1;
         }
 
         // configure global opengl state
         glEnable(GL_DEPTH_TEST);
 
+        shader = Shader("resources/shaders/default.vert", "resources/shaders/default.frag");
+
         // set up vertex data (and buffer(s)) and configure vertex attributes
-        vertices = (float[]){
+        vertices = {
             -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
             0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
             0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
@@ -122,8 +134,9 @@ public:
             -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
             -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
         };
+
         // world space positions of our cubes
-        cubePositions = (glm::vec3[]){
+        cube_positions = {
             glm::vec3( 0.0f,  0.0f,  0.0f),
             glm::vec3( 2.0f,  5.0f, -15.0f),
             glm::vec3(-1.5f, -2.2f, -2.5f),
@@ -140,9 +153,9 @@ public:
         glGenBuffers(1, &VBO);
 
         glBindVertexArray(VAO);
-
+        
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
         // position attribute
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
@@ -160,6 +173,7 @@ public:
         // set texture filtering parameters
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
         // load image, create texture and generate mipmaps
         int width, height, nrChannels;
         stbi_set_flip_vertically_on_load(true); // tell stb_image.h to flip loaded texture's on the y-axis.
@@ -177,19 +191,17 @@ public:
 
         // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
         shader.use();
-
-        return 0;
     }
 
     void update()
     {
         // per-frame time logic
         float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        delta_time = currentFrame - last_frame;
+        last_frame = currentFrame;
 
         // input
-        processInput(window);
+        process_input(window);
 
         // render
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -203,7 +215,7 @@ public:
         shader.use();
 
         // pass projection matrix to shader (note that in this case it could change every frame)
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)ScrWidth / (float)ScrHeight, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)scr_width / (float)scr_height, 0.1f, 100.0f);
         shader.setMat4("projection", projection);
 
         // camera/view transformation
@@ -216,7 +228,7 @@ public:
         {
             // calculate the model matrix for each object and pass it to shader before drawing
             glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-            model = glm::translate(model, cubePositions[i]);
+            model = glm::translate(model, cube_positions[i]);
             float angle = 20.0f * i;
             model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
             shader.setMat4("model", model);
@@ -243,38 +255,22 @@ public:
     {
         return !glfwWindowShouldClose(window);
     }
-    
+
 private:
-    GLFWwindow* window;
-
-    // camera
-    Camera camera{ glm::vec3(0.0f, 0.0f, 0.0f) };
-    float lastX = ScrWidth / 2.0f;
-    float lastY = ScrHeight / 2.0f;
-    bool firstMouse = true;
-
-    // shader
-    Shader shader{ "resources/shaders/default.vert", "resources/shaders/default.frag" };
-
-    // buffers
-    unsigned int VBO, VAO;
-    unsigned int texture;
-
-    // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-    void processInput(GLFWwindow *window)
+    void process_input(GLFWwindow *window)
     {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            camera.ProcessKeyboard(FORWARD, deltaTime);
+            camera.ProcessKeyboard(FORWARD, delta_time);
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            camera.ProcessKeyboard(BACKWARD, deltaTime);
+            camera.ProcessKeyboard(BACKWARD, delta_time);
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            camera.ProcessKeyboard(LEFT, deltaTime);
+            camera.ProcessKeyboard(LEFT, delta_time);
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            camera.ProcessKeyboard(RIGHT, deltaTime);
+            camera.ProcessKeyboard(RIGHT, delta_time);
     }
 
     // glfw: whenever the window size changed (by OS or user resize) this callback function executes
-    static void framebuffer_size_callback(GLFWwindow* _window, int width, int height)
+    static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     {
         // make sure the viewport matches the new window dimensions; note that width and 
         // height will be significantly larger than specified on retina displays.
@@ -286,27 +282,26 @@ private:
         float xpos = static_cast<float>(xposIn);
         float ypos = static_cast<float>(yposIn);
 
-        if (firstMouse)
+        if (first_mouse)
         {
-            lastX = xpos;
-            lastY = ypos;
-            firstMouse = false;
+            lastx = xpos;
+            lasty = ypos;
+            first_mouse = false;
         }
 
-        float xoffset = xpos - lastX;
-        float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+        float xoffset = xpos - lastx;
+        float yoffset = lasty - ypos; // reversed since y-coordinates go from bottom to top
 
-        lastX = xpos;
-        lastY = ypos;
+        lastx = xpos;
+        lasty = ypos;
 
         camera.ProcessMouseMovement(xoffset, yoffset);
     }
 
     // glfw: whenever the mouse moves, this callback is called
-    static void mouse_callback_static(GLFWwindow* _window, double xposIn, double yposIn)
+    static void mouse_callback_static(GLFWwindow* window, double xposIn, double yposIn)
     {
-        Renderer* pThis = static_cast<Renderer*>(glfwGetWindowUserPointer(_window));
-        pThis->mouse_callback(xposIn, yposIn);
+        static_cast<Renderer*>(glfwGetWindowUserPointer(window))->mouse_callback(xposIn, yposIn);
     }
 
     void scroll_callback(double xoffset, double yoffset)
@@ -315,10 +310,9 @@ private:
     }
 
     // glfw: whenever the mouse scroll wheel scrolls, this callback is called
-    static void scroll_callback_static(GLFWwindow* _window, double xoffset, double yoffset)
+    static void scroll_callback_static(GLFWwindow* window, double xoffset, double yoffset)
     {
-        Renderer* pThis = static_cast<Renderer*>(glfwGetWindowUserPointer(_window));
-        pThis->scroll_callback(xoffset, yoffset);
+        static_cast<Renderer*>(glfwGetWindowUserPointer(window))->scroll_callback(xoffset, yoffset);
     }
 };
 

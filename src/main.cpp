@@ -4,12 +4,9 @@
 
 int main()
 {
-    std::cout << "E\n";
-    Renderer renderer(600, 600, "resources/shaders/default.vert", "resources/shaders/default.frag", "BitForge");
-    std::cout << "D\n";
+    Renderer renderer(600, 600, "BitForge");
     
     renderer.init();
-    std::cout << "B\n";
 
     while (renderer.getRunStatus())
     {
@@ -17,7 +14,6 @@ int main()
     }
 
     renderer.terminate();
-    std::cout << "C\n";
 
     return 0;
 }
