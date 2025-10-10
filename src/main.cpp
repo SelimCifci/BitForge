@@ -4,9 +4,7 @@
 
 int main()
 {
-    Renderer renderer(600, 600, "BitForge");
-    
-    renderer.init();
+    Renderer renderer(0, 0, "BitForge", true);
 
     while (renderer.getRunStatus())
     {

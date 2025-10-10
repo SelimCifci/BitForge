@@ -18,14 +18,89 @@
 class Renderer
 {
 public:
+    // WINDOW DETAILS
+    unsigned int scr_width;
+    unsigned int scr_height;
+    const char* app_name;
+    bool window_fullscreen;
+
+    Renderer(unsigned int width, unsigned int height, const char* name, bool fullscreen)
+    {
+        scr_width = width;
+        scr_height = height;
+        app_name = name;
+        window_fullscreen = fullscreen;
+        init();
+    }
+
+    void update()
+    {
+        // per-frame time logic
+        float currentFrame = static_cast<float>(glfwGetTime());
+        delta_time = currentFrame - last_frame;
+        last_frame = currentFrame;
+
+        // input
+        process_input(window);
+
+        // render
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
+
+        // bind textures on corresponding texture units
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
+
+        // activate shader
+        shader.use();
+
+        // pass projection matrix to shader (note that in this case it could change every frame)
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)scr_width / (float)scr_height, 0.1f, 100.0f);
+        shader.setMat4("projection", projection);
+
+        // camera/view transformation
+        glm::mat4 view = camera.GetViewMatrix();
+        shader.setMat4("view", view);
+
+        // render boxes
+        glBindVertexArray(VAO);
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+            model = glm::translate(model, cube_positions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            shader.setMat4("model", model);
+
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    void terminate()
+    {
+        // optional: de-allocate all resources once they've outlived their purpose:
+        glDeleteVertexArrays(1, &VAO);
+        glDeleteBuffers(1, &VBO);
+
+        // glfw: terminate, clearing all previously allocated GLFW resources.
+        glfwTerminate();
+    }
+
+    int getRunStatus()
+    {
+        return !glfwWindowShouldClose(window);
+    }
+
+private:
     // CLASS INSTANCES
     GLFWwindow* window;
     Shader shader;
     Camera camera{glm::vec3(0.0f, 0.0f, 0.0f)};
-
-    // WINDOW DETAILS
-    unsigned int scr_width, scr_height;
-    const char* app_name;
 
     // BUFFERS
     unsigned int VBO, VAO;
@@ -46,13 +121,6 @@ public:
     std::vector<float> vertices;
     std::vector<glm::vec3> cube_positions;
 
-    Renderer(unsigned int width, unsigned int height, const char* name)
-    {
-        scr_width = width;
-        scr_height = height;
-        app_name = name;
-    }
-
     void init()
     {
         glfwInit();
@@ -64,6 +132,12 @@ public:
     #ifdef __APPLE__
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
     #endif
+
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+
+        scr_width = mode->width;
+        scr_height = mode->height;
 
         window = glfwCreateWindow(scr_width, scr_height, app_name, NULL, NULL);
         if (window == NULL)
@@ -79,6 +153,8 @@ public:
         glfwSetScrollCallback(window, scroll_callback_static);
 
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+        if (window_fullscreen) glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
 
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
         {
@@ -193,70 +269,6 @@ public:
         shader.use();
     }
 
-    void update()
-    {
-        // per-frame time logic
-        float currentFrame = static_cast<float>(glfwGetTime());
-        delta_time = currentFrame - last_frame;
-        last_frame = currentFrame;
-
-        // input
-        process_input(window);
-
-        // render
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
-
-        // bind textures on corresponding texture units
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-
-        // activate shader
-        shader.use();
-
-        // pass projection matrix to shader (note that in this case it could change every frame)
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)scr_width / (float)scr_height, 0.1f, 100.0f);
-        shader.setMat4("projection", projection);
-
-        // camera/view transformation
-        glm::mat4 view = camera.GetViewMatrix();
-        shader.setMat4("view", view);
-
-        // render boxes
-        glBindVertexArray(VAO);
-        for (unsigned int i = 0; i < 10; i++)
-        {
-            // calculate the model matrix for each object and pass it to shader before drawing
-            glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-            model = glm::translate(model, cube_positions[i]);
-            float angle = 20.0f * i;
-            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-            shader.setMat4("model", model);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
-        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
-
-    void terminate()
-    {
-        // optional: de-allocate all resources once they've outlived their purpose:
-        glDeleteVertexArrays(1, &VAO);
-        glDeleteBuffers(1, &VBO);
-
-        // glfw: terminate, clearing all previously allocated GLFW resources.
-        glfwTerminate();
-    }
-
-    int getRunStatus()
-    {
-        return !glfwWindowShouldClose(window);
-    }
-
-private:
     void process_input(GLFWwindow *window)
     {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
