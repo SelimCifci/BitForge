@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 4.1.2)
 project(BitForge VERSION 0.0.0)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(assimp REQUIRED)
 
 include_directories(
     include/
@@ -19,11 +20,13 @@ include_directories(SYSTEM
 add_executable(${PROJECT_NAME}
     src/renderer.cpp
     src/glad.c
+    src/stb_image.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     glfw
+    assimp
 )
 
 add_custom_command(TARGET BitForge POST_BUILD
