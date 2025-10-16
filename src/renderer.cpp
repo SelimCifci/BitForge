@@ -1,6 +1,6 @@
+#include <cstdio>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-
 #include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 
@@ -74,6 +74,11 @@ int main()
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
 
     // build and compile shaders
     // -------------------------
@@ -83,7 +88,8 @@ int main()
     // load models
     // -----------
     Model backpack_model("resources/models/backpack/backpack.obj");
-    Model light_model("resources/models/cube/cube.obj");
+    Model light_model("resources/models/sphere/sphere.obj");
+    Model cube_model("resources/models/cube/cube.obj");
     
     // DEBUG: draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -106,6 +112,21 @@ int main()
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // view/projection transformations
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+
+        // render "sun"
+        light_shader.use();
+        light_shader.setMat4("projection", projection);
+        light_shader.setMat4("view", view);
+
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.7f,  0.2f,  2.0f));
+        model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
+        light_shader.setMat4("model", model);
+        light_model.Draw(light_shader);
 
         // don't forget to enable shader before setting uniforms
         object_shader.use();
@@ -136,31 +157,30 @@ int main()
         object_shader.setFloat("spotLight.constant", 1.0f);
         object_shader.setFloat("spotLight.linear", 0.09f);
         object_shader.setFloat("spotLight.quadratic", 0.032f);
-        object_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
-        object_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
+        object_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(0.0f)));
+        object_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
 
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
         object_shader.setMat4("projection", projection);
         object_shader.setMat4("view", view);
 
         // render the loaded model
-        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
         object_shader.setMat4("model", model);
         backpack_model.Draw(object_shader);
 
-        light_shader.use();
-        light_shader.setMat4("projection", projection);
-        light_shader.setMat4("view", view);
-
+        // render transparent models
+        glDisable(GL_CULL_FACE);
+        glDepthMask(GL_FALSE);
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.7f,  0.2f,  2.0f));
-        model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
-        light_shader.setMat4("model", model);
-        light_model.Draw(light_shader);
+        model = glm::translate(model, glm::vec3(3.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        object_shader.setMat4("model", model);
+        cube_model.Draw(object_shader);
+        glDepthMask(GL_TRUE);
+        glEnable(GL_CULL_FACE);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
