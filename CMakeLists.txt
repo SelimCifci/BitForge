@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 4.1.2)
 project(BitForge VERSION 0.0.0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)

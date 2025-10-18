@@ -1,7 +1,7 @@
-#include <cstdio>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/fwd.hpp>
+#include <glm/detail/qualifier.hpp>
+#include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
 
 #include <shader.hpp>
@@ -14,6 +14,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void process_input(GLFWwindow *window);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 // settings
 const unsigned int SCR_WIDTH = 600;
@@ -37,6 +38,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHintString(GLFW_WAYLAND_APP_ID, "BitForge");
 
 #ifdef __APPLE__
@@ -52,10 +54,12 @@ int main()
         glfwTerminate();
         return -1;
     }
+
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
 
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -74,10 +78,13 @@ int main()
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_CULL_FACE);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+
+    glDepthFunc(GL_LEQUAL);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_BACK);
 
     // build and compile shaders
@@ -110,7 +117,7 @@ int main()
 
         // render
         // ------
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // view/projection transformations
@@ -123,7 +130,7 @@ int main()
         light_shader.setMat4("view", view);
 
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.7f,  0.2f,  2.0f));
+        model = glm::translate(model, glm::vec3(0.7f, 0.2f, 2.0f));
         model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
         light_shader.setMat4("model", model);
         light_model.Draw(light_shader);
@@ -131,7 +138,7 @@ int main()
         // don't forget to enable shader before setting uniforms
         object_shader.use();
         object_shader.setVec3("viewPos", camera.Position);
-        object_shader.setFloat("material.shininess", 32.0f);
+        object_shader.setFloat("material.shininess", 64.0f);
 
         // directional light
         object_shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
@@ -140,7 +147,7 @@ int main()
         object_shader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
 
         // point light
-        object_shader.setVec3("pointLights[0].position", 0.7f,  0.2f,  2.0f);
+        object_shader.setVec3("pointLights[0].position", 0.7f, 0.2f, 2.0f);
         object_shader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
         object_shader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
         object_shader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
@@ -173,13 +180,20 @@ int main()
 
         // render transparent models
         glDisable(GL_CULL_FACE);
-        glDepthMask(GL_FALSE);
+
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(3.0f, 0.0f, 0.0f));
+        model = glm::translate(model, glm::vec3(4.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
         object_shader.setMat4("model", model);
         cube_model.Draw(object_shader);
-        glDepthMask(GL_TRUE);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -5.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f));
+        object_shader.setMat4("model", model);
+        cube_model.Draw(object_shader);
+
         glEnable(GL_CULL_FACE);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -194,12 +208,14 @@ int main()
     return 0;
 }
 
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
-// ---------------------------------------------------------------------------------------------------------
-void process_input(GLFWwindow *window)
+void process_input(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+    {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        glfwSetCursorPosCallback(window, NULL);
+        glfwSetScrollCallback(window, NULL);
+    }
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.ProcessKeyboard(FORWARD, delta_time);
@@ -211,8 +227,6 @@ void process_input(GLFWwindow *window)
         camera.ProcessKeyboard(RIGHT, delta_time);
 }
 
-// glfw: whenever the window size changed (by OS or user resize) this callback function executes
-// ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // make sure the viewport matches the new window dimensions; note that width and 
@@ -220,8 +234,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
     float xpos = static_cast<float>(xposIn);
@@ -243,9 +255,17 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetCursorPosCallback(window, mouse_callback);
+        glfwSetScrollCallback(window, scroll_callback);
+    }
 }
