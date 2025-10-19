@@ -2,11 +2,13 @@
 #include <GLFW/glfw3.h>
 #include <glm/detail/qualifier.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 
 #include <shader.hpp>
 #include <camera.hpp>
 #include <model.hpp>
+#include <framebuffer.hpp>
 
 #include <iostream>
 
@@ -92,6 +94,19 @@ int main()
     Shader object_shader("resources/shaders/default.vert", "resources/shaders/default.frag");
     Shader light_shader("resources/shaders/light.vert", "resources/shaders/light.frag");
 
+    Framebuffer framebuffer(SCR_WIDTH, SCR_HEIGHT/2, {
+            -1.0f,  1.0f, 0.0f, 1.0f,
+            -1.0f,  0.0f, 0.0f, 0.0f,
+             1.0f,  0.0f, 1.0f, 0.0f,
+             1.0f,  1.0f, 1.0f, 1.0f
+    });
+    Framebuffer mirror(SCR_WIDTH, SCR_HEIGHT/2, {
+        -1.0f,  0.0f, 0.0f, 1.0f,
+        -1.0f, -1.0f, 0.0f, 0.0f,
+         1.0f, -1.0f, 1.0f, 0.0f,
+         1.0f,  0.0f, 1.0f, 1.0f
+    });
+
     // load models
     // -----------
     Model backpack_model("resources/models/backpack/backpack.obj");
@@ -114,6 +129,8 @@ int main()
         // input
         // -----
         process_input(window);
+
+        framebuffer.bind();
 
         // render
         // ------
@@ -159,7 +176,7 @@ int main()
         object_shader.setVec3("spotLight.position", camera.Position);
         object_shader.setVec3("spotLight.direction", camera.Front);
         object_shader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-        object_shader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        object_shader.setVec3("spoGL_CULL_FACEtLight.diffuse", 1.0f, 1.0f, 1.0f);
         object_shader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
         object_shader.setFloat("spotLight.constant", 1.0f);
         object_shader.setFloat("spotLight.linear", 0.09f);
@@ -179,12 +196,10 @@ int main()
         backpack_model.Draw(object_shader);
 
         // render transparent models
-        glDisable(GL_CULL_FACE);
-
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(4.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
         object_shader.setMat4("model", model);
         cube_model.Draw(object_shader);
 
@@ -194,13 +209,104 @@ int main()
         object_shader.setMat4("model", model);
         cube_model.Draw(object_shader);
 
-        glEnable(GL_CULL_FACE);
+        framebuffer.draw();
+
+        // draw mirror
+        mirror.bind();
+
+        camera.ProcessMouseMovement(0, 0, false);
+        camera.Front *= -1.0f;
+
+        // render
+        // ------
+        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // view/projection transformations
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        view = camera.GetViewMatrix();
+
+        // render "sun"
+        light_shader.use();
+        light_shader.setMat4("projection", projection);
+        light_shader.setMat4("view", view);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.7f, 0.2f, 2.0f));
+        model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
+        light_shader.setMat4("model", model);
+        light_model.Draw(light_shader);
+
+        // don't forget to enable shader before setting uniforms
+        object_shader.use();
+        object_shader.setVec3("viewPos", camera.Position);
+        object_shader.setFloat("material.shininess", 64.0f);
+
+        // directional light
+        object_shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
+        object_shader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
+        object_shader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+        object_shader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+
+        // point light
+        object_shader.setVec3("pointLights[0].position", 0.7f, 0.2f, 2.0f);
+        object_shader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
+        object_shader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
+        object_shader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
+        object_shader.setFloat("pointLights[0].constant", 1.0f);
+        object_shader.setFloat("pointLights[0].linear", 0.09f);
+        object_shader.setFloat("pointLights[0].quadratic", 0.032f);
+
+        // flashlight
+        object_shader.setVec3("spotLight.position", camera.Position);
+        object_shader.setVec3("spotLight.direction", camera.Front);
+        object_shader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        object_shader.setVec3("spoGL_CULL_FACEtLight.diffuse", 1.0f, 1.0f, 1.0f);
+        object_shader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        object_shader.setFloat("spotLight.constant", 1.0f);
+        object_shader.setFloat("spotLight.linear", 0.09f);
+        object_shader.setFloat("spotLight.quadratic", 0.032f);
+        object_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(0.0f)));
+        object_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
+
+        // view/projection transformations
+        object_shader.setMat4("projection", projection);
+        object_shader.setMat4("view", view);
+
+        // render the loaded model
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
+        object_shader.setMat4("model", model);
+        backpack_model.Draw(object_shader);
+
+        // render transparent models
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(4.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+        object_shader.setMat4("model", model);
+        cube_model.Draw(object_shader);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -5.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f));
+        object_shader.setMat4("model", model);
+        cube_model.Draw(object_shader);
+
+        mirror.stackedDraw();
+
+        camera.Front *= -1.0f;
+        camera.ProcessMouseMovement(0, 0, true);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    framebuffer.cleanUp();
+    mirror.cleanUp();
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
