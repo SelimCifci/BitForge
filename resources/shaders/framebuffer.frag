@@ -9,6 +9,7 @@ const float offset = 1.0 / 100.0;
 
 void main()
 {
+    // OVERSHARPENING
     vec2 offsets[9] = vec2[](
         vec2(-offset,  offset), // top-left
         vec2( 0.0f,    offset), // top-center
@@ -37,4 +38,6 @@ void main()
         col += sampleTex[i] * kernel[i];
     
     FragColor = vec4(col, 1.0);
+    // NO POSTPROCESSING
+    //FragColor = vec4(vec3(texture(screenTexture, TexCoords)), 1.0);
 }  

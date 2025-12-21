@@ -5,23 +5,24 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(assimp REQUIRED)
 
 include_directories(
     include/
-    src/
+    bitforge
 )
 
-include_directories(SYSTEM
-    /usr/include/glad/
+file(GLOB SRC_FILES
+     "src/*.cpp"
 )
 
 add_executable(${PROJECT_NAME}
-    src/renderer.cpp
-    src/glad.c
-    src/stb_image.cpp
+    include/glad/glad.c
+    include/stb/stb_image.cpp
+    bitforge/bitforge.cpp
+    bitforge/main.cpp
+    ${SRC_FILES}
 )
 
 target_link_libraries(${PROJECT_NAME}

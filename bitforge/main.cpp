@@ -1,15 +1,13 @@
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/detail/qualifier.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/fwd.hpp>
-#include <glm/glm.hpp>
+#include <glfw/glfw3.h>
 
 #include <shader.hpp>
 #include <camera.hpp>
 #include <model.hpp>
 #include <framebuffer.hpp>
+#include <bitforge.hpp>
 
+#include <ostream>
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -19,13 +17,13 @@ void process_input(GLFWwindow *window);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 // settings
-const unsigned int SCR_WIDTH = 600;
-const unsigned int SCR_HEIGHT = 600;
+unsigned int scr_width = 600;
+unsigned int scr_height = 600;
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = SCR_WIDTH / 2.0f;
-float lastY = SCR_HEIGHT / 2.0f;
+float lastX = scr_width / 2.0f;
+float lastY = scr_height / 2.0f;
 bool first_mouse = true;
 
 // timing
@@ -41,7 +39,6 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_SAMPLES, 4);
-    glfwWindowHintString(GLFW_WAYLAND_APP_ID, "BitForge");
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -49,7 +46,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "BitForge", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(scr_width, scr_height, "BitForge", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -91,28 +88,27 @@ int main()
 
     // build and compile shaders
     // -------------------------
-    Shader object_shader("resources/shaders/default.vert", "resources/shaders/default.frag");
-    Shader light_shader("resources/shaders/light.vert", "resources/shaders/light.frag");
+    Shader object_shader("default");
+    Shader light_shader("light");
 
-    Framebuffer framebuffer(SCR_WIDTH, SCR_HEIGHT/2, {
-            -1.0f,  1.0f, 0.0f, 1.0f,
-            -1.0f,  0.0f, 0.0f, 0.0f,
-             1.0f,  0.0f, 1.0f, 0.0f,
-             1.0f,  1.0f, 1.0f, 1.0f
-    });
-    Framebuffer mirror(SCR_WIDTH, SCR_HEIGHT/2, {
-        -1.0f,  0.0f, 0.0f, 1.0f,
+    // main framebuffer
+    Framebuffer framebuffer(scr_width, scr_height, "framebuffer", {
+        -1.0f,  1.0f, 0.0f, 1.0f,
         -1.0f, -1.0f, 0.0f, 0.0f,
-         1.0f, -1.0f, 1.0f, 0.0f,
-         1.0f,  0.0f, 1.0f, 1.0f
+        1.0f, -1.0f, 1.0f, 0.0f,
+        1.0f,  1.0f, 1.0f, 1.0f
     });
+
+    glfwSetWindowUserPointer(window, &framebuffer);
 
     // load models
     // -----------
-    Model backpack_model("resources/models/backpack/backpack.obj");
-    Model light_model("resources/models/sphere/sphere.obj");
-    Model cube_model("resources/models/cube/cube.obj");
-    
+    Model backpack_model("backpack");
+    Model light_model("sphere");
+    Model cube_model("cube");
+
+    run_starts();
+
     // DEBUG: draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -126,9 +122,14 @@ int main()
         delta_time = currentFrame - last_frame;
         last_frame = currentFrame;
 
+        framebuffer.width = scr_width;
+        framebuffer.height = scr_height;
+
         // input
         // -----
         process_input(window);
+
+        run_updates();
 
         framebuffer.bind();
 
@@ -138,7 +139,7 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)scr_width / (float)scr_height, 0.1f, 100.0f);
         glm::mat4 view = camera.GetViewMatrix();
 
         // render "sun"
@@ -150,7 +151,7 @@ int main()
         model = glm::translate(model, glm::vec3(0.7f, 0.2f, 2.0f));
         model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
         light_shader.setMat4("model", model);
-        light_model.Draw(light_shader);
+        light_model.draw(light_shader);
 
         // don't forget to enable shader before setting uniforms
         object_shader.use();
@@ -190,114 +191,15 @@ int main()
 
         // render the loaded model
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
         object_shader.setMat4("model", model);
-        backpack_model.Draw(object_shader);
-
-        // render transparent models
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(4.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+        backpack_model.draw(object_shader);
+        model = glm::translate(model, glm::vec3(10.0f, 10.0f, 10.0f));
         object_shader.setMat4("model", model);
-        cube_model.Draw(object_shader);
-
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -5.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f));
-        object_shader.setMat4("model", model);
-        cube_model.Draw(object_shader);
+        draw_all(object_shader);
 
         framebuffer.draw();
-
-        // draw mirror
-        mirror.bind();
-
-        camera.ProcessMouseMovement(0, 0, false);
-        camera.Front *= -1.0f;
-
-        // render
-        // ------
-        glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        // view/projection transformations
-        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        view = camera.GetViewMatrix();
-
-        // render "sun"
-        light_shader.use();
-        light_shader.setMat4("projection", projection);
-        light_shader.setMat4("view", view);
-
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.7f, 0.2f, 2.0f));
-        model = glm::scale(model, glm::vec3(0.2f)); // Make it a smaller cube
-        light_shader.setMat4("model", model);
-        light_model.Draw(light_shader);
-
-        // don't forget to enable shader before setting uniforms
-        object_shader.use();
-        object_shader.setVec3("viewPos", camera.Position);
-        object_shader.setFloat("material.shininess", 64.0f);
-
-        // directional light
-        object_shader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
-        object_shader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
-        object_shader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
-        object_shader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
-
-        // point light
-        object_shader.setVec3("pointLights[0].position", 0.7f, 0.2f, 2.0f);
-        object_shader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
-        object_shader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
-        object_shader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
-        object_shader.setFloat("pointLights[0].constant", 1.0f);
-        object_shader.setFloat("pointLights[0].linear", 0.09f);
-        object_shader.setFloat("pointLights[0].quadratic", 0.032f);
-
-        // flashlight
-        object_shader.setVec3("spotLight.position", camera.Position);
-        object_shader.setVec3("spotLight.direction", camera.Front);
-        object_shader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
-        object_shader.setVec3("spoGL_CULL_FACEtLight.diffuse", 1.0f, 1.0f, 1.0f);
-        object_shader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
-        object_shader.setFloat("spotLight.constant", 1.0f);
-        object_shader.setFloat("spotLight.linear", 0.09f);
-        object_shader.setFloat("spotLight.quadratic", 0.032f);
-        object_shader.setFloat("spotLight.cutOff", glm::cos(glm::radians(0.0f)));
-        object_shader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
-
-        // view/projection transformations
-        object_shader.setMat4("projection", projection);
-        object_shader.setMat4("view", view);
-
-        // render the loaded model
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));	// it's a bit too big for our scene, so scale it down
-        object_shader.setMat4("model", model);
-        backpack_model.Draw(object_shader);
-
-        // render transparent models
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(4.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
-        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-        object_shader.setMat4("model", model);
-        cube_model.Draw(object_shader);
-
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -5.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(10.0f, 1.0f, 10.0f));
-        object_shader.setMat4("model", model);
-        cube_model.Draw(object_shader);
-
-        mirror.stackedDraw();
-
-        camera.Front *= -1.0f;
-        camera.ProcessMouseMovement(0, 0, true);
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -306,7 +208,6 @@ int main()
     }
 
     framebuffer.cleanUp();
-    mirror.cleanUp();
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -338,6 +239,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
+    Framebuffer* fb = static_cast<Framebuffer*>(glfwGetWindowUserPointer(window));
+    if (fb) fb->resize(width, height);
+
+    scr_width = width;
+    scr_height = height;
 }
 
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)

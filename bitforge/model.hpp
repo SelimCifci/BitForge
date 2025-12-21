@@ -1,21 +1,14 @@
 #ifndef MODEL_H
 #define MODEL_H
 
-#include <glad/glad.h> 
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <stb_image.h>
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <stb/stb_image.h>
 
 #include <mesh.hpp>
 #include <shader.hpp>
 
-#include <string>
-#include <iostream>
-#include <vector>
 using namespace std;
 
 unsigned int TextureFromFile(const char *path, const string &directory, bool gamma = false);
@@ -29,17 +22,19 @@ public:
     string directory;
     bool gammaCorrection;
 
+    Model(){};
+
     // constructor, expects a filepath to a 3D model.
-    Model(string const &path, bool gamma = false) : gammaCorrection(gamma)
+    Model(string const &name, bool gamma = false) : gammaCorrection(gamma)
     {
-        loadModel(path);
+        loadModel("resources/models/" + name + "/" + name + ".obj");
     }
 
     // draws the model, and thus all its meshes
-    void Draw(Shader &shader)
+    void draw(Shader& shader)
     {
         for(unsigned int i = 0; i < meshes.size(); i++)
-            meshes[i].Draw(shader);
+            meshes[i].draw(shader);
     }
     
 private:

@@ -4,9 +4,11 @@
 #include <glad/glad.h>
 
 #include <shader.hpp>
-#include <model.hpp>
 
+#include <iostream>
+#include <sys/types.h>
 #include <vector>
+#include <string>
 
 class Framebuffer
 {
@@ -14,9 +16,9 @@ public:
     unsigned int FBO, RBO, textureColorbuffer;
 
     unsigned int width, height;
-    vector<float> vertices;
+    std::vector<float> vertices;
 
-    Framebuffer(unsigned int width, unsigned int height, vector<float> vertices) : shader("resources/shaders/framebuffer.vert", "resources/shaders/framebuffer.frag")
+    Framebuffer(unsigned int width, unsigned int height, std::string shader_name, std::vector<float> vertices) : shader(shader_name)
     {
         this->width = width;
         this->height = height;
@@ -25,8 +27,7 @@ public:
         shader.use();
         shader.setInt("screenTexture", 0);
 
-        genBuffers();
-        genVertexObjects();
+        init();
     }
 
     void bind()
@@ -36,19 +37,6 @@ public:
     }
 
     void draw()
-    {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDisable(GL_DEPTH_TEST);
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        shader.use();
-        glBindVertexArray(VAO);
-        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
-        glDrawElements(GL_TRIANGLES, static_cast<unsigned int>(indices.size()), GL_UNSIGNED_INT, 0);
-    }
-
-    void stackedDraw()
     {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDisable(GL_DEPTH_TEST);
@@ -68,14 +56,28 @@ public:
         glDeleteFramebuffers(1, &FBO);
     }
 
+    void resize(unsigned int new_width, unsigned int new_height)
+    {
+        width = new_width;
+        height = new_height;
+
+        // Resize texture
+        glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+        // Resize renderbuffer
+        glBindRenderbuffer(GL_RENDERBUFFER, RBO);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    }
+
 private:
     Shader shader;
 
     unsigned int VAO, VBO, EBO;
 
-    vector<unsigned int> indices;
+    std::vector<unsigned int> indices;
 
-    void genBuffers()
+    void init()
     {
         glGenFramebuffers(1, &FBO);
         glBindFramebuffer(GL_FRAMEBUFFER, FBO);
@@ -93,13 +95,10 @@ private:
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, RBO);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-            cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+            std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
 
-    void genVertexObjects()
-    {
         indices = {
             0, 1, 3,
             1, 2, 3
