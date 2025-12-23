@@ -15,13 +15,7 @@ public:
     unsigned int ID;
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
-<<<<<<< HEAD:include/shader.hpp
-    Shader() {}
-
-    Shader(const char* vertexPath, const char* fragmentPath)
-=======
     Shader(std::string name)
->>>>>>> origin/tutorial:bitforge/shader.hpp
     {
         // 1. retrieve the vertex/fragment source code from filePath
         std::string vertexCode;

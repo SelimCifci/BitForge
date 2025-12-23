@@ -18,16 +18,11 @@ file(GLOB SRC_FILES
 )
 
 add_executable(${PROJECT_NAME}
-<<<<<<< HEAD
-    src/main.cpp
-    src/glad.c
-=======
     include/glad/glad.c
     include/stb/stb_image.cpp
     bitforge/bitforge.cpp
     bitforge/main.cpp
     ${SRC_FILES}
->>>>>>> origin/tutorial
 )
 
 target_link_libraries(${PROJECT_NAME}
