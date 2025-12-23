@@ -61,9 +61,6 @@ vec4 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 
 void main()
 {
-<<<<<<< HEAD
-	FragColor = texture(aTexture, TexCoord);
-=======
     if (texture(material.diffuse, TexCoords).a <= 0.05) discard;
 
     // properties
@@ -150,5 +147,4 @@ vec4 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     diffuse *= attenuation * intensity;
     specular *= attenuation * intensity;
     return (ambient + diffuse + specular);
->>>>>>> origin/tutorial
 }

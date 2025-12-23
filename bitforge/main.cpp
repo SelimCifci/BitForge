@@ -25,6 +25,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = scr_width / 2.0f;
 float lastY = scr_height / 2.0f;
 bool first_mouse = true;
+bool mouse_locked = true;
 
 // timing
 float delta_time = 0.0f;
@@ -107,7 +108,7 @@ int main()
     Model light_model("sphere");
     Model cube_model("cube");
 
-    run_starts();
+    //run_starts();
 
     // DEBUG: draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -129,7 +130,7 @@ int main()
         // -----
         process_input(window);
 
-        run_updates();
+        //run_updates();
 
         framebuffer.bind();
 
@@ -197,7 +198,7 @@ int main()
         backpack_model.draw(object_shader);
         model = glm::translate(model, glm::vec3(10.0f, 10.0f, 10.0f));
         object_shader.setMat4("model", model);
-        draw_all(object_shader);
+        //draw_all(object_shader);
 
         framebuffer.draw();
 
@@ -219,6 +220,7 @@ void process_input(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
     {
+        mouse_locked = false;
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         glfwSetCursorPosCallback(window, NULL);
         glfwSetScrollCallback(window, NULL);
@@ -258,8 +260,15 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
         first_mouse = false;
     }
 
+    if (!mouse_locked)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        mouse_locked = true;
+    }
+
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    float yoffset = lastY - ypos;
 
     lastX = xpos;
     lastY = ypos;
@@ -274,7 +283,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && !mouse_locked)
     {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         glfwSetCursorPosCallback(window, mouse_callback);
