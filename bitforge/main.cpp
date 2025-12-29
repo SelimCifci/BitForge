@@ -108,7 +108,7 @@ int main()
     Model light_model("sphere");
     Model cube_model("cube");
 
-    //run_starts();
+    BitForge::run_starts();
 
     // DEBUG: draw in wireframe
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -130,7 +130,7 @@ int main()
         // -----
         process_input(window);
 
-        //run_updates();
+        BitForge::run_updates(delta_time);
 
         framebuffer.bind();
 
