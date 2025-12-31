@@ -1,5 +1,5 @@
 build
 .vscode
 .cache
-.build.sh
-.run.sh
+run.sh
+build.sh

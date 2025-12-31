@@ -3,14 +3,13 @@ project(BitForge VERSION 0.0.0)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(OpenGL REQUIRED)
 find_package(assimp REQUIRED)
 
 include_directories(
     include/
-    bitforge
+    bitforge/
 )
 
 file(GLOB SRC_FILES
@@ -27,6 +26,6 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
-    glfw
     assimp
+    glfw
 )
