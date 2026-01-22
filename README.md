@@ -16,4 +16,4 @@
 - Linux: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cp -r ./resources ./build/`
 
 ## Run
-Linux: `./build/BitForge`
+- Linux: `./build/BitForge`
