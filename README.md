@@ -1,4 +1,4 @@
-# Bitforge
+# BitForge
 (Soon to be) Code-only game engine written in C++ with OpenGL and Assimp for maximized performace (unlike whatever Epic Games is doing)
 
 # Prerequisites
@@ -14,7 +14,7 @@
 # Running
 ## Build
 - Linux: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cp -r ./resources ./build/`
-- Windows: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && xcopy /E /I /H /Y .\resources .\build\resources\`
+//- Windows: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && xcopy /E /I /H /Y .\resources .\build\resources\`
 
 ## Run
 Linux: `./build/BitForge`
