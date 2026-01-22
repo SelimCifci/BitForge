@@ -14,8 +14,6 @@
 # Running
 ## Build
 - Linux: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && cp -r ./resources ./build/`
-//- Windows: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build && xcopy /E /I /H /Y .\resources .\build\resources\`
 
 ## Run
 Linux: `./build/BitForge`
-Windows: `.\build\BitForge.exe`
